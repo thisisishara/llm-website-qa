@@ -1,3 +1,4 @@
+import argparse
 import logging
 import os
 import sys
@@ -36,13 +37,27 @@ if __name__ == "__main__":
         "https://www.shoutout.ai/shared-inbox",
     ]
 
+    parser = argparse.ArgumentParser(description="ShoutOUT AI Knowledgebase build CLI")
+    parser.add_argument(
+        "-t",
+        "--token",
+        type=str,
+        help="Question to be asked about ShoutOUT AI",
+        default=os.getenv("OPENAI_API_KEY", None),
+        required=False,
+    )
+    args = parser.parse_args()
+    openai_api_key = args.token
+
+    logger.info(f"The API key set for current session: {openai_api_key}")
+
     logger.info("🗝️ Validating the API token...")
-    valid, err = validate_openai_token(api_token=str(os.getenv("OPENAI_API_KEY")))
+    valid, err = validate_openai_token(openai_api_key=openai_api_key)
     if not valid:
         logger.error(err)
         sys.exit(1)
 
     logger.info("Building the knowledgebase")
-    create_knowledgebase(urls=urls)
+    create_knowledgebase(urls=urls, openai_api_key=openai_api_key)
 
     logger.info("✅ Knowledgebase created")
