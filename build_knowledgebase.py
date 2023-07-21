@@ -37,8 +37,9 @@ if __name__ == "__main__":
     ]
 
     logger.info("🗝️ Validating the API token...")
-    if not validate_openai_token(api_token=str(os.getenv("OPENAI_API_KEY"))):
-        logger.error("Invalid OpenAI API token detected.")
+    valid, err = validate_openai_token(api_token=str(os.getenv("OPENAI_API_KEY")))
+    if not valid:
+        logger.error(err)
         sys.exit(1)
 
     logger.info("Building the knowledgebase")

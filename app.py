@@ -61,14 +61,16 @@ def show_chat_ui():
 
 
 def show_error_ui():
-    st.error(f"Invalid API Token detected. Please try again!")
+    st.error(st.session_state.token_err)
 
 
 def verify_token():
-    if validate_openai_token(st.session_state.api_key):
+    valid, err = validate_openai_token(st.session_state.api_key)
+    if valid:
         st.session_state.validated_token = st.session_state.api_key
     else:
         st.session_state.validated_token = "invalid"
+        st.session_state.token_err = err
 
 
 def app():
