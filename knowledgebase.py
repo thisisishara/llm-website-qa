@@ -63,6 +63,8 @@ class Knowledgebase:
     def query_knowledgebase(self, query: str, api_token: str = None):
         if api_token:
             os.environ["OPENAI_API_KEY"] = api_token
+        logger.info(f"---- {os.getenv('OPENAI_API_KEY')[-4:]}")
+        print(f"---- {os.getenv('OPENAI_API_KEY')[-4:]}")
 
         if not query:
             return {}
