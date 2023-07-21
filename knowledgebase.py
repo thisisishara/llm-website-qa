@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 def load_knowledgebase(
-        knowledgebase_name: str = os.getenv("KNOWLEDGEBASE", "shoutoutai_kb")
+    knowledgebase_name: str = os.getenv("KNOWLEDGEBASE", "shoutoutai_kb")
 ):
     with open(f"knowledgebases/{knowledgebase_name}.pkl", "rb") as f:
         knowledgebase = pickle.load(f)
@@ -55,15 +55,19 @@ def construct_query_response(result: dict) -> dict:
 
 
 class Knowledgebase:
-    def __init__(self):
-        self.knowledgebase = load_knowledgebase()
+    def __init__(
+        self, knowledgebase_name: str = os.getenv("KNOWLEDGEBASE", "shoutoutai_kb")
+    ):
+        self.knowledgebase = load_knowledgebase(knowledgebase_name=knowledgebase_name)
 
     def query_knowledgebase(self, query: str):
         if not query:
             return {}
 
         chain = VectorDBQAWithSourcesChain.from_llm(
-            llm=OpenAI(temperature=0, verbose=True), vectorstore=self.knowledgebase, verbose=True
+            llm=OpenAI(temperature=0, verbose=True),
+            vectorstore=self.knowledgebase,
+            verbose=True,
         )
         result = chain({"question": query})
         return result
