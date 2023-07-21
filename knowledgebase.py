@@ -5,9 +5,9 @@ import pickle
 import requests
 from bs4 import BeautifulSoup
 from langchain import VectorDBQAWithSourcesChain, OpenAI
-from langchain.vectorstores import FAISS
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.text_splitter import CharacterTextSplitter
+from langchain.vectorstores import FAISS
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,10 @@ class Knowledgebase:
     ):
         self.knowledgebase = load_knowledgebase(knowledgebase_name=knowledgebase_name)
 
-    def query_knowledgebase(self, query: str):
+    def query_knowledgebase(self, query: str, api_token: str = None):
+        if api_token:
+            os.environ["OPENAI_API_KEY"] = api_token
+
         if not query:
             return {}
 

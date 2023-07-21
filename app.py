@@ -18,8 +18,7 @@ logger.info(f"⚡ Knowledgebase initialized")
 
 def retrieve_answer(query: str):
     try:
-        os.environ["OPENAI_API_KEY"] = st.session_state.validated_token
-        answer = knowledgebase.query_knowledgebase(query=query)
+        answer = knowledgebase.query_knowledgebase(query=query, api_token=st.session_state.validated_token)
         return f"{answer['answer']}\n{answer['sources']}"
     except Exception as e:
         logger.exception(f"Invalid API key. {e}")
