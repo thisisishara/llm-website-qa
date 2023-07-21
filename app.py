@@ -18,11 +18,20 @@ logger.info(f"⚡ Knowledgebase initialized")
 
 def retrieve_answer(query: str):
     try:
-        answer = knowledgebase.query_knowledgebase(query=query, api_token=st.session_state.validated_token)
-        return f"{answer['answer']}\n{answer['sources']}"
+        answer = knowledgebase.query_knowledgebase(
+            query=query, openai_api_key=st.session_state.validated_token
+        )
+        if answer.get("sources", None) not in [None, "None", ""]:
+            return f"{answer['answer']}\n{answer['sources']}"
+        else:
+            return f"{answer['answer']}"
     except Exception as e:
         logger.exception(f"Invalid API key. {e}")
-        return f"Could not retrieve the answer. Are you sure your API token is valid?"
+        return (
+            f"Could not retrieve the answer. This could be due to "
+            f"various reasons such as Invalid API Token or hitting "
+            f"the Rate limit enforced by OpenAI."
+        )
 
 
 def show_chat_ui():
@@ -65,7 +74,7 @@ def show_error_ui():
 
 
 def verify_token():
-    valid, err = validate_openai_token(st.session_state.api_key)
+    valid, err = validate_openai_token(openai_api_key=st.session_state.get('api_key', None))
     if valid:
         st.session_state.validated_token = st.session_state.api_key
     else:
@@ -87,7 +96,7 @@ def app():
         "Enter the OpenAI API Key",
         key="api_key",
         label_visibility="hidden",
-        placeholder="API Key",
+        placeholder="OpenAI API Key",
         type="password",
     )
 
