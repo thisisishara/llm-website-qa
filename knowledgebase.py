@@ -1,4 +1,3 @@
-import logging
 import os
 import pickle
 
@@ -8,8 +7,9 @@ from langchain import VectorDBQAWithSourcesChain, OpenAI
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import FAISS
+from streamlit.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def load_knowledgebase(
@@ -20,7 +20,7 @@ def load_knowledgebase(
     return knowledgebase
 
 
-def create_knowledgebase(urls: list):
+def create_knowledgebase(urls: list, openai_api_key: str):
     pages: list[dict] = []
     for url in urls:
         pages.append({"text": extract_text_from(url_=url), "source": url})
@@ -34,7 +34,9 @@ def create_knowledgebase(urls: list):
         metadata.extend([{"source": page["source"]}] * len(splits))
         print(f"Split {page['source']} into {len(splits)} chunks")
 
-    store = FAISS.from_texts(docs, OpenAIEmbeddings(), metadatas=metadata)
+    store = FAISS.from_texts(
+        docs, OpenAIEmbeddings(openai_api_key=openai_api_key), metadatas=metadata
+    )
 
     with open("knowledgebases/shoutoutai_kb.pkl", "wb") as f:
         pickle.dump(store, f)
@@ -60,17 +62,24 @@ class Knowledgebase:
     ):
         self.knowledgebase = load_knowledgebase(knowledgebase_name=knowledgebase_name)
 
-    def query_knowledgebase(self, query: str, api_token: str = None):
-        if api_token:
-            os.environ["OPENAI_API_KEY"] = api_token
+    def query_knowledgebase(self, query: str, openai_api_key: str = None):
+        try:
+            logger.info(f"The API key for the session was set to: sk-***{openai_api_key[-4:]}")
 
-        if not query:
-            return {}
+            query = query.strip()
+            if not query:
+                return {
+                    "answer": "Oh snap! did you hit send accidentally, "
+                    "because I can't see any questions 🤔"
+                }
 
-        chain = VectorDBQAWithSourcesChain.from_llm(
-            llm=OpenAI(temperature=0, verbose=True),
-            vectorstore=self.knowledgebase,
-            verbose=True,
-        )
-        result = chain({"question": query})
-        return result
+            chain = VectorDBQAWithSourcesChain.from_llm(
+                llm=OpenAI(temperature=0, verbose=True, openai_api_key=openai_api_key),
+                vectorstore=self.knowledgebase,
+                verbose=True,
+            )
+            result = chain({"question": query})
+            return result
+        except Exception as e:
+            logger.error(f"{e.__class__.__name__}: {e}")
+            return {"answer": f"{e.__class__.__name__}: {e}"}
