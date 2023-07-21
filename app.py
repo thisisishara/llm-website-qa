@@ -1,47 +1,75 @@
 import logging
+import os
 
 import streamlit as st
-from dotenv import load_dotenv
 
 from knowledgebase import Knowledgebase
 from utils.openai import validate_openai_token
-
-# load the .env
-load_dotenv()
 
 # initialize a logger
 logger = logging.getLogger(__name__)
 
 # initialize knowledgebase
-knowledgebase = Knowledgebase()
+knowledgebase = Knowledgebase(
+    knowledgebase_name=os.getenv("KNOWLEDGEBASE", "shoutoutai_kb")
+)
 logger.info(f"⚡ Knowledgebase initialized")
 
 
+def retrieve_answer(query: str):
+    try:
+        os.environ["OPENAI_API_KEY"] = st.session_state.validated_token
+        answer = knowledgebase.query_knowledgebase(query=query)
+        return f"{answer['answer']}\n{answer['sources']}"
+    except Exception as e:
+        logger.exception(f"Invalid API key. {e}")
+        return f"Could not retrieve the answer. Are you sure your API token is valid?"
+
+
 def show_chat_ui():
-    st.header("ShoutOUT Website QA Demo powered by OpenAI LLMs")
-    st.caption("⚡ Powered by :blue[LangChain] & :blue[OpenAI]")
-    st.subheader("Let's start chatting, shall we?")
-    st.success(f"New API Key: {st.session_state.api_key[-4:]}")
+    if not st.session_state.get("message_history", None):
+        st.subheader("Let's start chatting, shall we?")
 
-    prompt = st.chat_input("Say something")
-    if prompt:
-        st.write(f"User has sent the following prompt: {prompt}")
+    if st.session_state.get("in_progress", False):
+        query = st.chat_input(
+            "Ask me about ShoutOUT AI stuff", key="query_input", disabled=True
+        )
+    else:
+        query = st.chat_input("Ask me about ShoutOUT AI stuff", key="query_input")
 
-    with st.chat_message("user", avatar="https://i.imgur.com/Rf63hWt.png"):
-        st.write("Hello Assistant")
-    with st.chat_message("assistant", avatar="https://i.imgur.com/Latap1Y.png"):
-        st.write("Hello User")
+    if query:
+        st.session_state.in_progress = True
+        current_messages = st.session_state.get("message_history", [])
+        current_messages.append({"text": query, "from": "user"})
+        st.session_state.message_history = current_messages
+        answer = retrieve_answer(query=query)
+        current_messages.append({"text": answer, "from": "assistant"})
+        st.session_state.message_history = current_messages
+        st.session_state.in_progress = False
 
+    if st.session_state.get("message_history", None):
+        messages = st.session_state.message_history
+        for message in messages:
+            if message.get("from") == "user":
+                with st.chat_message("user", avatar="https://i.imgur.com/Rf63hWt.png"):
+                    st.write(message.get("text"))
 
-def show_intro_ui():
-    st.header("ShoutOUT Website QA Demo powered by OpenAI LLMs")
-    st.caption("⚡ Powered by :blue[LangChain] & :blue[OpenAI]")
+            if message.get("from") == "assistant":
+                with st.chat_message(
+                    "assistant", avatar="https://i.imgur.com/Latap1Y.png"
+                ):
+                    st.write(message.get("text"))
 
 
 def show_error_ui():
-    st.header("ShoutOUT Website QA Demo powered by OpenAI LLMs")
-    st.caption("⚡ Powered by :blue[LangChain] & :blue[OpenAI]")
     st.error(f"Invalid API Token detected. Please try again!")
+
+
+def verify_token():
+    if validate_openai_token(st.session_state.api_key):
+        st.session_state.validated_token = st.session_state.api_key
+    else:
+        st.session_state.validated_token = "invalid"
 
 
 def app():
@@ -62,39 +90,23 @@ def app():
         type="password",
     )
 
-    # # enable getting URLs
-    # st.sidebar.info(
-    #     "To get started, enter your OpenAI API key and the URL of the webpage to chat with"
-    # )
-    # st.sidebar.text_input(
-    #     "Enter the OpenAI API Key",
-    #     key="api_key",
-    #     label_visibility="hidden",
-    #     placeholder="API Key",
-    #     type="password",
-    # )
-    # st.sidebar.text_input(
-    #     "Enter the URL of the webpage to chat with",
-    #     key="webpage_url",
-    #     label_visibility="hidden",
-    #     placeholder="URL",
-    # )
+    if st.sidebar.button("Get Started ✅", key="verify_button"):
+        verify_token()
 
-    if st.sidebar.button("Get Started ✅"):
-        if validate_openai_token(st.session_state.api_key):
-            st.session_state["validated_token"] = st.session_state.api_key
-        else:
-            st.session_state["validated_token"] = "invalid"
+    # perform verification on startup
+    verify_token()
 
-    key_state = str(st.session_state["validated_token"])
+    # main section
+    st.header("ShoutOUT Website QA Demo powered by OpenAI LLMs")
+    st.caption("⚡ Powered by :blue[LangChain] & :blue[OpenAI]")
+
+    key_state = str(st.session_state.validated_token)
     if key_state == "invalid":
         st.sidebar.warning(f"⚠️ Invalid API Token")
         show_error_ui()
     elif key_state.startswith("sk-"):
         st.sidebar.success(f"🎉 Token Validated!")
         show_chat_ui()
-    else:
-        show_intro_ui()
 
 
 if __name__ == "__main__":
