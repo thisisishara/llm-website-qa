@@ -12,7 +12,7 @@ from streamlit.logger import get_logger
 logger = get_logger(__name__)
 
 
-def load_knowledgebase(
+def load_vectorstore(
     knowledgebase_name: str = os.getenv("KNOWLEDGEBASE", "shoutoutai_kb")
 ):
     with open(f"knowledgebases/{knowledgebase_name}.pkl", "rb") as f:
@@ -60,7 +60,7 @@ class Knowledgebase:
     def __init__(
         self, knowledgebase_name: str = os.getenv("KNOWLEDGEBASE", "shoutoutai_kb")
     ):
-        self.knowledgebase = load_knowledgebase(knowledgebase_name=knowledgebase_name)
+        self.knowledgebase = load_vectorstore(knowledgebase_name=knowledgebase_name)
 
     def query_knowledgebase(self, query: str, openai_api_key: str = None):
         try:
