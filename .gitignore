@@ -162,3 +162,4 @@ cython_debug/
 
 # App-specific
 knowledgebases/*.pkl
+knowledgebases/*.faiss
