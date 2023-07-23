@@ -1,4 +1,3 @@
-import argparse
 import logging
 import os
 import sys
@@ -6,58 +5,53 @@ import sys
 from dotenv import load_dotenv
 
 from knowledgebase import create_knowledgebase
-from utils.openai import validate_openai_token
+from utils.constants import (
+    ASSISTANT_TYPE_KEY,
+    AssistantType,
+    OPENAI_API_TOKEN_KEY,
+    HUGGINGFACEHUB_API_TOKEN_KEY,
+    OPENAI_KNOWLEDGEBASE_KEY,
+    HF_KNOWLEDGEBASE_KEY,
+    ENV_FILE,
+)
+from utils.llm import validate_api_token
 
 logger = logging.getLogger(__name__)
 
 # load the .env
-load_dotenv()
+load_dotenv(dotenv_path=os.path.join(os.getcwd(), ENV_FILE))
 
 
 if __name__ == "__main__":
     # initialize the knowledgebase
     logger.info("⚡ Initializing the URLs...")
     urls = [
-        "https://www.shoutout.ai/",
-        "https://www.shoutout.ai/pricing",
         "https://www.shoutout.ai/company",
-        "https://www.shoutout.ai/conversational-banking",
-        "https://www.shoutout.ai/conversational-ai-for-travel-and-hospitality",
-        "https://www.shoutout.ai/conversational-ai-for-healthcare",
-        "https://www.shoutout.ai/conversational-ai-in-education",
-        "https://www.shoutout.ai/omnichannel-customer-service",
-        "https://www.shoutout.ai/website-conversion-rate-optimization-services",
-        "https://www.shoutout.ai/conversational-ai",
-        "https://www.shoutout.ai/omnichannel-inbox",
-        "https://www.shoutout.ai/knowledge-base-help-center",
-        "https://www.shoutout.ai/whatsapp-chatbot",
-        "https://www.shoutout.ai/facebook-messenger",
-        "https://www.shoutout.ai/website-chatbots",
-        "https://www.shoutout.ai/telegram-chatbots",
-        "https://www.shoutout.ai/shared-inbox",
     ]
 
-    parser = argparse.ArgumentParser(description="ShoutOUT AI Knowledgebase build CLI")
-    parser.add_argument(
-        "-t",
-        "--token",
-        type=str,
-        help="Question to be asked about ShoutOUT AI",
-        default=os.getenv("OPENAI_API_KEY", None),
-        required=False,
-    )
-    args = parser.parse_args()
-    openai_api_key = args.token
-
-    logger.info(f"The API key set for current session: {openai_api_key}")
+    # determine assistant type
+    assistant_type = os.getenv(ASSISTANT_TYPE_KEY, AssistantType.HUGGINGFACE.value)
+    if assistant_type == AssistantType.OPENAI.value:
+        assistant_type = AssistantType.OPENAI
+        api_key = os.getenv(OPENAI_API_TOKEN_KEY, None)
+        knowledgebase_name = os.environ.get(OPENAI_KNOWLEDGEBASE_KEY, None)
+    else:
+        assistant_type = AssistantType.HUGGINGFACE
+        api_key = os.getenv(HUGGINGFACEHUB_API_TOKEN_KEY, None)
+        knowledgebase_name = os.environ.get(HF_KNOWLEDGEBASE_KEY, None)
 
     logger.info("🗝️ Validating the API token...")
-    valid, err = validate_openai_token(openai_api_key=openai_api_key)
+    valid, err = validate_api_token(assistant_type=assistant_type, api_key=api_key)
     if not valid:
         logger.error(err)
         sys.exit(1)
 
     logger.info("Building the knowledgebase")
-    create_knowledgebase(urls=urls, openai_api_key=openai_api_key)
+    create_knowledgebase(
+        urls=urls,
+        assistant_type=assistant_type,
+        api_key=api_key,
+        knowledgebase_name=knowledgebase_name,
+    )
 
     logger.info("✅ Knowledgebase created")

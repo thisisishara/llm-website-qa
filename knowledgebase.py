@@ -1,85 +1,143 @@
-import os
-import pickle
-
 import requests
 from bs4 import BeautifulSoup
-from langchain import VectorDBQAWithSourcesChain, OpenAI
-from langchain.embeddings import OpenAIEmbeddings
+from langchain import VectorDBQAWithSourcesChain
+from langchain.callbacks import get_openai_callback
+from langchain.chains import RetrievalQAWithSourcesChain
+from langchain.embeddings import OpenAIEmbeddings, HuggingFaceHubEmbeddings
+from langchain.llms import OpenAI, HuggingFaceHub
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import FAISS
 from streamlit.logger import get_logger
 
+from utils.constants import (
+    KNOWLEDGEBASE_DIR,
+    AssistantType,
+    BS_HTML_PARSER,
+    TEXT_TAG,
+    SOURCE_TAG,
+    ANSWER_TAG,
+    QUESTION_TAG,
+    HF_TEXT_GENERATION_REPO_ID,
+)
+
 logger = get_logger(__name__)
-
-
-def load_vectorstore(
-    knowledgebase_name: str = os.getenv("KNOWLEDGEBASE", "shoutoutai_kb")
-):
-    with open(f"knowledgebases/{knowledgebase_name}.pkl", "rb") as f:
-        knowledgebase = pickle.load(f)
-    return knowledgebase
-
-
-def create_knowledgebase(urls: list, openai_api_key: str):
-    pages: list[dict] = []
-    for url in urls:
-        pages.append({"text": extract_text_from(url_=url), "source": url})
-
-    text_splitter = CharacterTextSplitter(chunk_size=1500, separator="\n")
-
-    docs, metadata = [], []
-    for page in pages:
-        splits = text_splitter.split_text(page["text"])
-        docs.extend(splits)
-        metadata.extend([{"source": page["source"]}] * len(splits))
-        print(f"Split {page['source']} into {len(splits)} chunks")
-
-    store = FAISS.from_texts(
-        docs, OpenAIEmbeddings(openai_api_key=openai_api_key), metadatas=metadata
-    )
-
-    with open("knowledgebases/shoutoutai_kb.pkl", "wb") as f:
-        pickle.dump(store, f)
-        logger.info("Knowledgebase created successfully")
 
 
 def extract_text_from(url_: str):
     html = requests.get(url_).text
-    soup = BeautifulSoup(html, features="html.parser")
+    soup = BeautifulSoup(html, features=BS_HTML_PARSER)
     text = soup.get_text()
 
     lines = (line.strip() for line in text.splitlines())
     return "\n".join(line for line in lines if line)
 
 
+def create_knowledgebase(
+    urls: list, assistant_type: AssistantType, api_key: str, knowledgebase_name: str
+):
+    pages: list[dict] = []
+    for url in urls:
+        pages.append({TEXT_TAG: extract_text_from(url_=url), SOURCE_TAG: url})
+
+    if assistant_type == AssistantType.OPENAI:
+        embeddings = OpenAIEmbeddings(openai_api_key=api_key)
+        chunk_size = 1500
+    else:
+        embeddings = HuggingFaceHubEmbeddings(huggingfacehub_api_token=api_key)
+        chunk_size = 500
+
+    text_splitter = CharacterTextSplitter(chunk_size=chunk_size, separator="\n")
+
+    docs, metadata = [], []
+    for page in pages:
+        splits = text_splitter.split_text(page[TEXT_TAG])
+        docs.extend(splits)
+        metadata.extend([{SOURCE_TAG: page[SOURCE_TAG]}] * len(splits))
+        print(f"Split {page[SOURCE_TAG]} into {len(splits)} chunks")
+
+    vectorstore = FAISS.from_texts(texts=docs, embedding=embeddings, metadatas=metadata)
+    vectorstore.save_local(folder_path=KNOWLEDGEBASE_DIR, index_name=knowledgebase_name)
+
+
+def load_vectorstore(
+    assistant_type: AssistantType,
+    api_key: str,
+    knowledgebase_name: str,
+):
+    if assistant_type == AssistantType.OPENAI:
+        embeddings = OpenAIEmbeddings(openai_api_key=api_key)
+    else:
+        embeddings = HuggingFaceHubEmbeddings(huggingfacehub_api_token=api_key)
+
+    store = FAISS.load_local(
+        folder_path=KNOWLEDGEBASE_DIR,
+        embeddings=embeddings,
+        index_name=knowledgebase_name,
+    )
+    return store
+
+
 def construct_query_response(result: dict) -> dict:
-    return {"answer": result}
+    return {ANSWER_TAG: result}
 
 
 class Knowledgebase:
     def __init__(
-        self, knowledgebase_name: str = os.getenv("KNOWLEDGEBASE", "shoutoutai_kb")
+        self,
+        assistant_type: AssistantType,
+        api_key: str,
+        knowledgebase_name: str,
     ):
-        self.knowledgebase = load_vectorstore(knowledgebase_name=knowledgebase_name)
+        self.assistant_type = assistant_type
+        self.api_key = api_key
+        self.knowledgebase = load_vectorstore(
+            assistant_type=assistant_type,
+            api_key=api_key,
+            knowledgebase_name=knowledgebase_name,
+        )
 
-    def query_knowledgebase(self, query: str, openai_api_key: str = None):
+    def query_knowledgebase(self, query: str):
         try:
-            logger.info(f"The API key for the session was set to: sk-***{openai_api_key[-4:]}")
+            logger.info(
+                f"The API key for the session was set to: ***{self.api_key[-4:]}"
+            )
 
             query = query.strip()
             if not query:
                 return {
-                    "answer": "Oh snap! did you hit send accidentally, "
-                    "because I can't see any questions 🤔"
+                    ANSWER_TAG: "Oh snap! did you hit send accidentally, because I can't see any questions 🤔"
                 }
 
-            chain = VectorDBQAWithSourcesChain.from_llm(
-                llm=OpenAI(temperature=0, verbose=True, openai_api_key=openai_api_key),
-                vectorstore=self.knowledgebase,
-                verbose=True,
-            )
-            result = chain({"question": query})
+            if self.assistant_type == AssistantType.OPENAI:
+                llm = OpenAI(temperature=0, verbose=True, openai_api_key=self.api_key)
+                chain = VectorDBQAWithSourcesChain.from_llm(
+                    llm=llm,
+                    vectorstore=self.knowledgebase,
+                )
+            else:
+                llm = HuggingFaceHub(
+                    repo_id=HF_TEXT_GENERATION_REPO_ID,
+                    model_kwargs={"temperature": 0.5, "max_length": 64},
+                    huggingfacehub_api_token=self.api_key,
+                    verbose=True,
+                )
+                chain = RetrievalQAWithSourcesChain.from_chain_type(
+                    llm=llm,
+                    chain_type="refine",
+                    retriever=self.knowledgebase.as_retriever(),
+                    max_tokens_limit=1024,
+                    reduce_k_below_max_tokens=True,
+                    chain_type_kwargs={"verbose": True},
+                )
+
+            with get_openai_callback() as cb:
+                result = chain({QUESTION_TAG: query})
+                print(f"Total Tokens: {cb.total_tokens}")
+                print(f"Prompt Tokens: {cb.prompt_tokens}")
+                print(f"Completion Tokens: {cb.completion_tokens}")
+                print(f"Total Cost (USD): ${cb.total_cost}")
+
             return result
         except Exception as e:
             logger.error(f"{e.__class__.__name__}: {e}")
-            return {"answer": f"{e.__class__.__name__}: {e}"}
+            return {ANSWER_TAG: f"{e.__class__.__name__}: {e}"}
