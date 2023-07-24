@@ -77,18 +77,16 @@ def create_knowledgebase(
 
 
 def load_vectorstore(
-    assistant_type: AssistantType,
     embedding_type: EmbeddingType,
-    api_key: str,
+    embedding_api_key: str,
     knowledgebase_name: str,
 ):
-    if assistant_type == AssistantType.OPENAI:
-        if embedding_type == EmbeddingType.OPENAI:
-            embeddings = OpenAIEmbeddings(openai_api_key=api_key)
-        else:
-            embeddings = HuggingFaceHubEmbeddings(huggingfacehub_api_token=api_key)
+    if embedding_type == EmbeddingType.OPENAI:
+        embeddings = OpenAIEmbeddings(openai_api_key=embedding_api_key)
     else:
-        embeddings = HuggingFaceHubEmbeddings(huggingfacehub_api_token=api_key)
+        embeddings = HuggingFaceHubEmbeddings(
+            huggingfacehub_api_token=embedding_api_key
+        )
         logger.info(
             f"Since the assistant type is set to `hf`, `hf` embeddings are used by default."
         )
@@ -109,21 +107,28 @@ class Knowledgebase:
     def __init__(
         self,
         assistant_type: AssistantType,
-        api_key: str,
+        embedding_type: EmbeddingType,
+        assistant_api_key: str,
+        embedding_api_key: str,
         knowledgebase_name: str,
     ):
         self.assistant_type = assistant_type
-        self.api_key = api_key
+        self.embedding_type = embedding_type
+        self.assistant_api_key = assistant_api_key
+        self.embedding_api_key = embedding_api_key
         self.knowledgebase = load_vectorstore(
-            assistant_type=assistant_type,
-            api_key=api_key,
+            embedding_type=embedding_type,
+            embedding_api_key=embedding_api_key,
             knowledgebase_name=knowledgebase_name,
         )
 
     def query_knowledgebase(self, query: str):
         try:
             logger.info(
-                f"The API key for the session was set to: ***{self.api_key[-4:]}"
+                f"The assistant API key for the current session: ***{self.assistant_api_key[-4:]}"
+            )
+            logger.info(
+                f"The embedding API key for the current session: ***{self.embedding_api_key[-4:]}"
             )
 
             query = query.strip()
@@ -133,7 +138,9 @@ class Knowledgebase:
                 }
 
             if self.assistant_type == AssistantType.OPENAI:
-                llm = OpenAI(temperature=0, verbose=True, openai_api_key=self.api_key)
+                llm = OpenAI(
+                    temperature=0, verbose=True, openai_api_key=self.assistant_api_key
+                )
                 chain = VectorDBQAWithSourcesChain.from_llm(
                     llm=llm,
                     vectorstore=self.knowledgebase,
@@ -142,7 +149,7 @@ class Knowledgebase:
                 llm = HuggingFaceHub(
                     repo_id=HF_TEXT_GENERATION_REPO_ID,
                     model_kwargs={"temperature": 0.5, "max_length": 64},
-                    huggingfacehub_api_token=self.api_key,
+                    huggingfacehub_api_token=self.assistant_api_key,
                     verbose=True,
                 )
                 chain = RetrievalQAWithSourcesChain.from_chain_type(
