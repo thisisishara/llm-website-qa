@@ -18,6 +18,7 @@ from utils.constants import (
     ANSWER_TAG,
     QUESTION_TAG,
     HF_TEXT_GENERATION_REPO_ID,
+    EmbeddingType,
 )
 
 logger = get_logger(__name__)
@@ -33,18 +34,34 @@ def extract_text_from(url_: str):
 
 
 def create_knowledgebase(
-    urls: list, assistant_type: AssistantType, api_key: str, knowledgebase_name: str
+    urls: list,
+    assistant_type: AssistantType,
+    embedding_type: EmbeddingType,
+    embedding_api_key: str,
+    knowledgebase_name: str,
 ):
     pages: list[dict] = []
     for url in urls:
         pages.append({TEXT_TAG: extract_text_from(url_=url), SOURCE_TAG: url})
 
     if assistant_type == AssistantType.OPENAI:
-        embeddings = OpenAIEmbeddings(openai_api_key=api_key)
         chunk_size = 1500
+        if embedding_type == EmbeddingType.HUGGINGFACE:
+            embeddings = HuggingFaceHubEmbeddings(
+                huggingfacehub_api_token=embedding_api_key
+            )
+            logger.info(f"Using `hf` embeddings")
+        else:
+            embeddings = OpenAIEmbeddings(openai_api_key=embedding_api_key)
+            logger.info(f"Using `openai` embeddings")
     else:
-        embeddings = HuggingFaceHubEmbeddings(huggingfacehub_api_token=api_key)
         chunk_size = 500
+        embeddings = HuggingFaceHubEmbeddings(
+            huggingfacehub_api_token=embedding_api_key
+        )
+        logger.info(
+            f"Since the assistant type is set to `hf`, `hf` embeddings are used by default."
+        )
 
     text_splitter = CharacterTextSplitter(chunk_size=chunk_size, separator="\n")
 
@@ -61,13 +78,20 @@ def create_knowledgebase(
 
 def load_vectorstore(
     assistant_type: AssistantType,
+    embedding_type: EmbeddingType,
     api_key: str,
     knowledgebase_name: str,
 ):
     if assistant_type == AssistantType.OPENAI:
-        embeddings = OpenAIEmbeddings(openai_api_key=api_key)
+        if embedding_type == EmbeddingType.OPENAI:
+            embeddings = OpenAIEmbeddings(openai_api_key=api_key)
+        else:
+            embeddings = HuggingFaceHubEmbeddings(huggingfacehub_api_token=api_key)
     else:
         embeddings = HuggingFaceHubEmbeddings(huggingfacehub_api_token=api_key)
+        logger.info(
+            f"Since the assistant type is set to `hf`, `hf` embeddings are used by default."
+        )
 
     store = FAISS.load_local(
         folder_path=KNOWLEDGEBASE_DIR,
