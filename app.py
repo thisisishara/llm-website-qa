@@ -26,6 +26,8 @@ from utils.constants import (
     ASSISTANT_TYPE_TAG,
     ASSISTANT_AVATAR,
     USER_AVATAR,
+    EmbeddingType,
+    APIKeyType,
 )
 from utils.llm import validate_api_token
 
@@ -36,13 +38,17 @@ logger = logging.getLogger(__name__)
 def retrieve_answer(query: str):
     try:
         assistant_type = st.session_state.selected_assistant_type
-        api_key = st.session_state.verified_api_key
+        embedding_type = EmbeddingType.HUGGINGFACE
+        assistant_api_key = st.session_state.verified_api_key
+        embedding_api_key = st.session_state.embedding_api_key
         knowledgebase_name = st.session_state.knowledgebase_name
 
         knowledgebase = Knowledgebase(
             assistant_type=assistant_type,
+            embedding_type=embedding_type,
+            assistant_api_key=assistant_api_key,
+            embedding_api_key=embedding_api_key,
             knowledgebase_name=knowledgebase_name,
-            api_key=api_key,
         )
         answer = knowledgebase.query_knowledgebase(query=query)
 
@@ -163,32 +169,50 @@ def verify_token():
 
     load_dotenv()
 
+    embedding_api_key = os.getenv(HUGGINGFACEHUB_API_TOKEN_KEY, None)
     st_assistant_type = st.session_state.selected_assistant_type
     if st_assistant_type == AssistantType.OPENAI:
-        assistant_type = AssistantType.OPENAI
-        api_key = st.session_state.get(API_KEY_TAG, None)
+        assistant_api_key = st.session_state.get(API_KEY_TAG, None)
+        assistant_api_key_type = APIKeyType.OPENAI
         knowledgebase_name = os.environ.get(OPENAI_KNOWLEDGEBASE_KEY, None)
     else:
-        assistant_type = AssistantType.HUGGINGFACE
-        api_key = os.getenv(HUGGINGFACEHUB_API_TOKEN_KEY, None)
+        assistant_api_key = os.getenv(HUGGINGFACEHUB_API_TOKEN_KEY, None)
+        assistant_api_key_type = APIKeyType.HUGGINGFACE
         knowledgebase_name = os.environ.get(HF_KNOWLEDGEBASE_KEY, None)
 
     logger.info(
-        f"The API key for the current st session: {api_key}\n"
+        f"The API key for the current st session: {assistant_api_key}\n"
         f"The Knowledgebase for the current st session: {knowledgebase_name}"
     )
 
-    valid, err = validate_api_token(
-        assistant_type=assistant_type,
-        api_key=api_key,
+    assistant_valid, assistant_err = validate_api_token(
+        api_key_type=assistant_api_key_type,
+        api_key=assistant_api_key,
     )
-    if valid:
+    embedding_valid, embedding_err = validate_api_token(
+        api_key_type=APIKeyType.HUGGINGFACE,
+        api_key=embedding_api_key,
+    )
+
+    if assistant_valid and embedding_valid:
         st.session_state.valid_token = True
-        st.session_state.verified_api_key = api_key
+        st.session_state.verified_api_key = assistant_api_key
+        st.session_state.embedding_api_key = embedding_api_key
         st.session_state.knowledgebase_name = knowledgebase_name
+    elif not assistant_valid and not embedding_valid:
+        st.session_state.valid_token = False
+        st.session_state.token_err = f"{assistant_err}\n{embedding_err}"
+    elif not assistant_valid:
+        st.session_state.valid_token = False
+        st.session_state.token_err = assistant_err
+    elif not embedding_valid:
+        st.session_state.valid_token = False
+        st.session_state.token_err = embedding_err
     else:
         st.session_state.valid_token = False
-        st.session_state.token_err = err
+        st.session_state.token_err = (
+            "An unknown error occurred while validating the API keys"
+        )
 
 
 def app():
