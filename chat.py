@@ -17,6 +17,9 @@ from utils.constants import (
     QUERY_TAG,
     ANSWER_TAG,
     SOURCES_TAG,
+    EMBEDDING_TYPE_KEY,
+    APIKeyType,
+    EmbeddingType,
 )
 from utils.llm import validate_api_token
 
@@ -27,24 +30,45 @@ logger = logging.getLogger(__name__)
 
 
 if __name__ == "__main__":
-    # determine assistant type
     assistant_type = os.getenv(ASSISTANT_TYPE_KEY, AssistantType.HUGGINGFACE.value)
+    embedding_type = os.getenv(EMBEDDING_TYPE_KEY, EmbeddingType.HUGGINGFACE.value)
+
     if assistant_type == AssistantType.OPENAI.value:
         assistant_type = AssistantType.OPENAI
-        api_key = os.getenv(OPENAI_API_TOKEN_KEY, None)
+        assistant_api_key = os.environ.get(OPENAI_API_TOKEN_KEY, None)
+        assistant_api_key_type = APIKeyType.OPENAI
         knowledgebase_name = os.environ.get(OPENAI_KNOWLEDGEBASE_KEY, None)
+
+        if embedding_type == EmbeddingType.OPENAI.value:
+            embedding_type = EmbeddingType.OPENAI
+            embedding_api_key = assistant_api_key
+            embedding_api_key_type = APIKeyType.OPENAI
+        else:
+            embedding_type = EmbeddingType.HUGGINGFACE
+            embedding_api_key = os.getenv(HUGGINGFACEHUB_API_TOKEN_KEY, None)
+            embedding_api_key_type = APIKeyType.HUGGINGFACE
     else:
         assistant_type = AssistantType.HUGGINGFACE
-        api_key = os.getenv(HUGGINGFACEHUB_API_TOKEN_KEY, None)
+        assistant_api_key = os.environ.get(HUGGINGFACEHUB_API_TOKEN_KEY, None)
+        assistant_api_key_type = APIKeyType.HUGGINGFACE
         knowledgebase_name = os.environ.get(HF_KNOWLEDGEBASE_KEY, None)
+        embedding_type = EmbeddingType.HUGGINGFACE
+        embedding_api_key = assistant_api_key
+        embedding_api_key_type = APIKeyType.HUGGINGFACE
 
-    logger.info(f"The API key for the current session: {api_key}")
-    logger.info(f"The knowledgebase for the current session: {knowledgebase_name}")
+    logger.info("🗝️ Validating the API tokens...")
+    assistant_valid, assistant_err = validate_api_token(
+        api_key_type=assistant_api_key_type, api_key=assistant_api_key
+    )
+    if not assistant_valid:
+        logger.error(assistant_err)
+        sys.exit(1)
 
-    logger.info("🗝️ Validating the API token...")
-    valid, err = validate_api_token(assistant_type=assistant_type, api_key=str(api_key))
-    if not valid:
-        logger.error(err)
+    embedding_valid, embedding_err = validate_api_token(
+        api_key_type=embedding_api_key_type, api_key=embedding_api_key
+    )
+    if not embedding_valid:
+        logger.error(embedding_err)
         sys.exit(1)
 
     parser = argparse.ArgumentParser(description="LLM Website QA - CLI")
@@ -56,7 +80,9 @@ if __name__ == "__main__":
 
     knowledgebase = Knowledgebase(
         assistant_type=assistant_type,
-        api_key=str(api_key),
+        embedding_type=embedding_type,
+        assistant_api_key=assistant_api_key,
+        embedding_api_key=embedding_api_key,
         knowledgebase_name=knowledgebase_name,
     )
     result = knowledgebase.query_knowledgebase(query=query)
