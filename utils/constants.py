@@ -5,10 +5,12 @@ BS_HTML_PARSER = "html.parser"
 OPENAI_CHAT_COMPLETION_MODEL = "gpt-3.5-turbo"
 ENV_FILE = ".env"
 HF_TEXT_GENERATION_REPO_ID = "google/flan-t5-xxl"
-# "OpenAssistant/falcon-40b-sft-mix-1226"
-# "OpenAssistant/oasst-sft-4-pythia-12b-epoch-3.5"
+# HF_TEXT_GENERATION_REPO_ID = "OpenAssistant/falcon-40b-sft-mix-1226"
+# HF_TEXT_GENERATION_REPO_ID = "OpenAssistant/oasst-sft-4-pythia-12b-epoch-3.5"
+TEST_PROMPT = "test"
 
 ASSISTANT_TYPE_KEY = "ASSISTANT_TYPE"
+EMBEDDING_TYPE_KEY = "EMBEDDING_TYPE"
 OPENAI_API_TOKEN_KEY = "OPENAI_API_KEY"
 HUGGINGFACEHUB_API_TOKEN_KEY = "HUGGINGFACEHUB_API_TOKEN"
 OPENAI_KNOWLEDGEBASE_KEY = "OPENAI_KNOWLEDGEBASE"
@@ -37,6 +39,16 @@ ASSISTANT_AVATAR = "https://i.imgur.com/NQwsRn2.png"
 
 
 class AssistantType(Enum):
+    HUGGINGFACE = "hf"
+    OPENAI = "openai"
+
+
+class APIKeyType(Enum):
+    HUGGINGFACE = "hf"
+    OPENAI = "openai"
+
+
+class EmbeddingType(Enum):
     HUGGINGFACE = "hf"
     OPENAI = "openai"
 
