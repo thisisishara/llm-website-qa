@@ -60,12 +60,24 @@ def retrieve_answer(query: str):
         logger.exception(f"Invalid API key. {e}")
         return (
             f"Could not retrieve the answer. This could be due to "
-            f"various reasons such as Invalid API Token or hitting "
-            f"the Rate limit enforced by OpenAI."
+            f"various reasons such as Invalid API Tokens or hitting "
+            f"the Rate limit enforced by LLM vendors."
         )
 
 
 def show_chat_ui():
+    if (
+        st.session_state.selected_assistant_type == AssistantType.HUGGINGFACE
+        and not st.session_state.get(MESSAGE_HISTORY_TAG, None)
+    ):
+        show_notification_banner_ui(
+            notification_type=StNotificationType.WARNING,
+            notification="🤗🤏🏽 HuggingFace assistant is not always guaranteed "
+            "to return a valid response and often exceeds the "
+            "maximum token limit. Use the OpenAI assistant for "
+            "more reliable responses.",
+        )
+
     if not st.session_state.get(MESSAGE_HISTORY_TAG, None):
         st.subheader("Let's start chatting, shall we?")
 
