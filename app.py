@@ -56,7 +56,9 @@ def retrieve_answer(query: str):
         if not metadata:
             metadata = "$0.00"
 
-        final_answer = re.sub(r"\bSOURCES:[\n\s]*$", "", str(answer[ANSWER_TAG]).strip()).strip()
+        final_answer = re.sub(
+            r"\bSOURCES:[\n\s]*$", "", str(answer[ANSWER_TAG]).strip()
+        ).strip()
         logger.info(f"final answer: {final_answer}")
 
         if answer.get(SOURCES_TAG, None) not in [None, NONE_TAG, EMPTY_TAG]:
