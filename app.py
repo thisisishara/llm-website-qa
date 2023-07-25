@@ -235,7 +235,7 @@ def app():
     )
     if st.sidebar.selectbox(
         "Assistant Type",
-        ["Hugging Face", "OpenAI"],
+        ["OpenAI", "Hugging Face"],
         key=ASSISTANT_TYPE_TAG,
         placeholder="Select Assistant Type",
     ):
