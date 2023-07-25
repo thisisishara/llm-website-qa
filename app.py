@@ -1,7 +1,9 @@
 import logging
 import os
+import re
 
 import streamlit as st
+from streamlit.logger import get_logger
 
 from knowledgebase import Knowledgebase
 from utils.constants import (
@@ -32,7 +34,7 @@ from utils.constants import (
 from utils.llm import validate_api_token
 
 # initialize a logger
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def retrieve_answer(query: str):
@@ -54,10 +56,13 @@ def retrieve_answer(query: str):
         if not metadata:
             metadata = "$0.00"
 
+        final_answer = re.sub(r"\bSOURCES:[\n\s]*$", "", str(answer[ANSWER_TAG]).strip()).strip()
+        logger.info(f"final answer: {final_answer}")
+
         if answer.get(SOURCES_TAG, None) not in [None, NONE_TAG, EMPTY_TAG]:
-            return f"{answer[ANSWER_TAG]}\n\nSources:\n{answer[SOURCES_TAG]}\n\nCost (USD):\n`{metadata}`"
+            return f"{final_answer}\n\nSources:\n{answer[SOURCES_TAG]}\n\nCost (USD):\n`{metadata}`"
         else:
-            return f"{answer[ANSWER_TAG]}\n\nCost:\n`{metadata}`"
+            return f"{final_answer}\n\nCost:\n`{metadata}`"
     except Exception as e:
         logger.exception(f"Invalid API key. {e}")
         return (
