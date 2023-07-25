@@ -50,12 +50,14 @@ def retrieve_answer(query: str):
             embedding_api_key=embedding_api_key,
             knowledgebase_name=knowledgebase_name,
         )
-        answer = knowledgebase.query_knowledgebase(query=query)
+        answer, metadata = knowledgebase.query_knowledgebase(query=query)
+        if not metadata:
+            metadata = "$0.00"
 
         if answer.get(SOURCES_TAG, None) not in [None, NONE_TAG, EMPTY_TAG]:
-            return f"{answer[ANSWER_TAG]}\n{answer[SOURCES_TAG]}"
+            return f"{answer[ANSWER_TAG]}\n\nSources:\n{answer[SOURCES_TAG]}\n\nCost (USD):\n`{metadata}`"
         else:
-            return f"{answer[ANSWER_TAG]}"
+            return f"{answer[ANSWER_TAG]}\n\nCost:\n`{metadata}`"
     except Exception as e:
         logger.exception(f"Invalid API key. {e}")
         return (
