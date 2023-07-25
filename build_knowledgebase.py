@@ -55,30 +55,24 @@ if __name__ == "__main__":
 
     if embedding_type == EmbeddingType.OPENAI:
         urls = [
-            "https://www.shoutout.ai/pricing",
-            "https://www.shoutout.ai/company",
-            "https://www.shoutout.ai/omnichannel-inbox",
+            "https://thisisishara.com/",
+            "https://github.com/thisisishara",
+            "https://github.com/thisisishara?tab=repositories",
+            "https://www.hackerrank.com/thisisishara?hr_r=1",
+            "https://www.npmjs.com/~thisisishara",
+            "https://pypi.org/user/thisisishara/",
+            "https://www.linkedin.com/in/isharadissanayake/",
         ]
 
     else:
         urls = [
-            "https://www.shoutout.ai/",
-            "https://www.shoutout.ai/pricing",
-            "https://www.shoutout.ai/company",
-            "https://www.shoutout.ai/conversational-banking",
-            "https://www.shoutout.ai/conversational-ai-for-travel-and-hospitality",
-            "https://www.shoutout.ai/conversational-ai-for-healthcare",
-            "https://www.shoutout.ai/conversational-ai-in-education",
-            "https://www.shoutout.ai/omnichannel-customer-service",
-            "https://www.shoutout.ai/website-conversion-rate-optimization-services",
-            "https://www.shoutout.ai/conversational-ai",
-            "https://www.shoutout.ai/omnichannel-inbox",
-            "https://www.shoutout.ai/knowledge-base-help-center",
-            "https://www.shoutout.ai/whatsapp-chatbot",
-            "https://www.shoutout.ai/facebook-messenger",
-            "https://www.shoutout.ai/website-chatbots",
-            "https://www.shoutout.ai/telegram-chatbots",
-            "https://www.shoutout.ai/shared-inbox",
+            "https://thisisishara.com/",
+            "https://github.com/thisisishara",
+            "https://github.com/thisisishara?tab=repositories",
+            "https://www.hackerrank.com/thisisishara?hr_r=1",
+            "https://www.npmjs.com/~thisisishara",
+            "https://pypi.org/user/thisisishara/",
+            "https://www.linkedin.com/in/isharadissanayake/",
         ]
 
     logger.info("🗝️ Validating the embedding API token...")
