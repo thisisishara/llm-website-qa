@@ -2,7 +2,8 @@ from enum import Enum
 
 KNOWLEDGEBASE_DIR = "knowledgebases"
 BS_HTML_PARSER = "html.parser"
-OPENAI_CHAT_COMPLETION_MODEL = "gpt-3.5-turbo"
+OPENAI_CHAT_COMPLETION_MODEL = "text-ada-001"
+OPENAI_TEST_MODEL = "text-ada-001"
 ENV_FILE = ".env"
 HF_TEXT_GENERATION_REPO_ID = "google/flan-t5-xxl"
 # HF_TEXT_GENERATION_REPO_ID = "OpenAssistant/falcon-40b-sft-mix-1226"

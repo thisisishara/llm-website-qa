@@ -3,7 +3,7 @@ import streamlit as st
 from huggingface_hub import InferenceClient
 from streamlit.logger import get_logger
 
-from utils.constants import OPENAI_CHAT_COMPLETION_MODEL, APIKeyType, TEST_PROMPT
+from utils.constants import APIKeyType, TEST_PROMPT, OPENAI_TEST_MODEL
 
 logger = get_logger(__name__)
 
@@ -24,9 +24,9 @@ def validate_api_token(api_key_type: APIKeyType, api_key: str) -> tuple[bool, st
 
     try:
         if api_key_type == APIKeyType.OPENAI:
-            openai.ChatCompletion.create(
-                model=OPENAI_CHAT_COMPLETION_MODEL,
-                messages=[{"role": "user", "content": TEST_PROMPT}],
+            openai.Completion.create(
+                model=OPENAI_TEST_MODEL,
+                prompt=TEST_PROMPT,
                 api_key=api_key,
                 max_tokens=1,
             )
