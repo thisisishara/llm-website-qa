@@ -1,10 +1,9 @@
 import requests
 from bs4 import BeautifulSoup
-from langchain import VectorDBQAWithSourcesChain
 from langchain.callbacks import get_openai_callback
 from langchain.chains import RetrievalQAWithSourcesChain
 from langchain.embeddings import OpenAIEmbeddings, HuggingFaceHubEmbeddings
-from langchain.llms import OpenAI, HuggingFaceHub
+from langchain.llms import OpenAIChat, HuggingFaceHub
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import FAISS
 from streamlit.logger import get_logger
@@ -19,6 +18,11 @@ from utils.constants import (
     QUESTION_TAG,
     HF_TEXT_GENERATION_REPO_ID,
     EmbeddingType,
+    TOTAL_TOKENS_TAG,
+    PROMPT_TOKENS_TAG,
+    COMPLETION_TOKENS_TAG,
+    TOTAL_COST_TAG,
+    OPENAI_CHAT_COMPLETIONS_MODEL,
 )
 
 logger = get_logger(__name__)
@@ -44,8 +48,12 @@ def create_knowledgebase(
     for url in urls:
         pages.append({TEXT_TAG: extract_text_from(url_=url), SOURCE_TAG: url})
 
+    chunk_size = 500
+    chunk_overlap = 30
     if assistant_type == AssistantType.OPENAI:
-        chunk_size = 1500
+        # # override the default chunk configs
+        # chunk_size = 1500
+        # chunk_overlap = 200
         if embedding_type == EmbeddingType.HUGGINGFACE:
             embeddings = HuggingFaceHubEmbeddings(
                 huggingfacehub_api_token=embedding_api_key
@@ -55,7 +63,6 @@ def create_knowledgebase(
             embeddings = OpenAIEmbeddings(openai_api_key=embedding_api_key)
             logger.info(f"Using `openai` embeddings")
     else:
-        chunk_size = 500
         embeddings = HuggingFaceHubEmbeddings(
             huggingfacehub_api_token=embedding_api_key
         )
@@ -63,7 +70,9 @@ def create_knowledgebase(
             f"Since the assistant type is set to `hf`, `hf` embeddings are used by default."
         )
 
-    text_splitter = CharacterTextSplitter(chunk_size=chunk_size, separator="\n")
+    text_splitter = CharacterTextSplitter(
+        chunk_size=chunk_size, chunk_overlap=chunk_overlap, separator="\n"
+    )
 
     docs, metadata = [], []
     for page in pages:
@@ -122,7 +131,7 @@ class Knowledgebase:
             knowledgebase_name=knowledgebase_name,
         )
 
-    def query_knowledgebase(self, query: str):
+    def query_knowledgebase(self, query: str) -> tuple[dict, dict]:
         try:
             logger.info(
                 f"The assistant API key for the current session: ***{self.assistant_api_key[-4:]}"
@@ -134,16 +143,30 @@ class Knowledgebase:
             query = query.strip()
             if not query:
                 return {
-                    ANSWER_TAG: "Oh snap! did you hit send accidentally, because I can't see any questions 🤔"
-                }
+                    ANSWER_TAG: "Oh snap! did you hit send accidentally, because I can't see any questions 🤔",
+                }, {}
 
             if self.assistant_type == AssistantType.OPENAI:
-                llm = OpenAI(
-                    temperature=0, verbose=True, openai_api_key=self.assistant_api_key
+                llm = OpenAIChat(
+                    model_name=OPENAI_CHAT_COMPLETIONS_MODEL,
+                    temperature=0,
+                    verbose=True,
+                    openai_api_key=self.assistant_api_key,
                 )
-                chain = VectorDBQAWithSourcesChain.from_llm(
+                # # this is deprecated
+                # chain = VectorDBQAWithSourcesChain.from_llm(
+                #     llm=llm,
+                #     vectorstore=self.knowledgebase,
+                #     max_tokens_limit=2048,
+                #     k=2,
+                #     reduce_k_below_max_tokens=True,
+                # )
+                chain = RetrievalQAWithSourcesChain.from_chain_type(
                     llm=llm,
-                    vectorstore=self.knowledgebase,
+                    chain_type="stuff",
+                    retriever=self.knowledgebase.as_retriever(),
+                    reduce_k_below_max_tokens=True,
+                    chain_type_kwargs={"verbose": True},
                 )
             else:
                 llm = HuggingFaceHub(
@@ -168,7 +191,13 @@ class Knowledgebase:
                 print(f"Completion Tokens: {cb.completion_tokens}")
                 print(f"Total Cost (USD): ${cb.total_cost}")
 
-            return result
+                metadata = {
+                    TOTAL_TOKENS_TAG: cb.total_tokens,
+                    PROMPT_TOKENS_TAG: cb.prompt_tokens,
+                    COMPLETION_TOKENS_TAG: cb.completion_tokens,
+                    TOTAL_COST_TAG: cb.total_cost,
+                }
+            return result, metadata
         except Exception as e:
             logger.error(f"{e.__class__.__name__}: {e}")
-            return {ANSWER_TAG: f"{e.__class__.__name__}: {e}"}
+            return {ANSWER_TAG: f"{e.__class__.__name__}: {e}"}, {}
