@@ -85,7 +85,8 @@ if __name__ == "__main__":
         embedding_api_key=embedding_api_key,
         knowledgebase_name=knowledgebase_name,
     )
-    result = knowledgebase.query_knowledgebase(query=query)
+    result, metadata = knowledgebase.query_knowledgebase(query=query)
 
     print(f"\nAnswer: \n{str(result.get(ANSWER_TAG, '').strip())}")
     print(f"\nSources: \n{str(result.get(SOURCES_TAG, '').strip())}")
+    print(f"\nCost: \n{metadata}")
